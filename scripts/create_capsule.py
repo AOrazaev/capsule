@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create a task workspace with independent Git worktrees (Python 3.9+)."""
+"""Create a Capsule task workspace with independent Git worktrees (Python 3.9+)."""
 import argparse
 import datetime
 import pathlib
@@ -46,14 +46,16 @@ def main():
     for alias, path in repos: print(f'  {alias}: {path}')
     if not a.yes and input('Create worktrees? [y/N] ').strip().lower() != 'y': return
     destination.mkdir(parents=True)
+    source = destination / 'src'
     created = []
     try:
+        source.mkdir()
         for alias, path in repos:
-            git('-C', path, 'worktree', 'add', '-b', branch, destination / alias, a.base)
+            git('-C', path, 'worktree', 'add', '-b', branch, source / alias, a.base)
             created.append((alias, path))
         today = datetime.date.today().isoformat()
-        descriptions = '\n'.join(f'- `{alias}/` — worktree from `{path}` on `{branch}`' for alias, path in repos)
-        for filename in ('AGENTS.md', 'TASK.md', 'WORKLOG.md'):
+        descriptions = '\n'.join(f'- `src/{alias}/` — worktree from `{path}` on `{branch}`' for alias, path in repos)
+        for filename in ('AGENTS.md', 'CURRENT_TASK.md', 'WORKLOG.md'):
             content = (TEMPLATE / filename).read_text().replace('{{TASK_NAME}}', a.name).replace('{{DATE}}', today).replace('{{REPOSITORIES}}', descriptions)
             (destination / filename).write_text(content)
         (destination / '.github' / 'skills').mkdir(parents=True)
@@ -61,7 +63,7 @@ def main():
     except Exception:
         print('Creation failed. Rolling back created worktrees.', file=sys.stderr)
         for alias, path in reversed(created):
-            subprocess.run(['git', '-C', str(path), 'worktree', 'remove', '--force', str(destination / alias)], check=False)
+            subprocess.run(['git', '-C', str(path), 'worktree', 'remove', '--force', str(source / alias)], check=False)
             subprocess.run(['git', '-C', str(path), 'branch', '-D', branch], check=False)
         raise
 
